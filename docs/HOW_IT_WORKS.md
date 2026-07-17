@@ -68,12 +68,18 @@ Clicking an action sends the selected text to `POST /api/ai/inline` (`{action, t
 
 The result replaces the original selection via `editor.pasteText()`. Known limitation: if the selection changes while the request is in flight, the replacement lands wherever the selection is *when the response arrives*, not the original spot — toolbar buttons are disabled during the request to shrink that window, not eliminate it.
 
+## Search & recently visited
+
+The search bar (`src/components/SearchBar.tsx`) appears in two places, each hitting a different scope: on `/dashboard` it's global (`GET /api/search`) — a Manager searches every workspace/page in the org, an Employee only their assigned workspaces, mirroring the same `session.userType` branch used everywhere else. Inside a workspace it's scoped to that workspace's pages only (`GET /api/workspaces/[id]/search`, reusing `getAccessibleWorkspace`). Both match on **title only** (case-insensitive substring, via a regex-escaped Mongo query — `src/lib/search.ts`'s `escapeRegExp` prevents user input from being interpreted as a regex pattern) — not page content, which lives as Yjs binary since Phase 4 and wasn't asked to be searchable.
+
+Every time `/dashboard/pages/[id]` is opened, `recordVisit` (`src/lib/recentlyVisited.ts`) upserts a `RecentlyVisited` row keyed on `(userId, pageId)`, so revisiting a page just bumps its `visitedAt` instead of creating a duplicate entry. `getRecentlyVisitedPages` (used by both `GET /api/recently-visited` and the `/dashboard/recent` page) fetches a buffer of recent visits, drops any pointing at pages that have since been trashed, and returns the 10 most recent.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-The AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md), and RecentlyVisited (Phase 6).
+The AI assistant widget and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, and a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md).
 
 Production deployment of the collaboration server (a second service alongside the Next.js app) isn't configured — no hosting target has been chosen yet.

@@ -21,6 +21,9 @@ export async function Navbar() {
               <Link href="/dashboard" className="text-sm font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">
                 Dashboard
               </Link>
+              <Link href="/dashboard/recent" className="text-sm font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">
+                Recently visited
+              </Link>
               <LogoutButton />
             </>
           ) : (

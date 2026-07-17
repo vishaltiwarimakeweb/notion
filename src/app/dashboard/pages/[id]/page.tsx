@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionFromCookies } from "@/lib/auth";
 import { getAccessiblePage } from "@/lib/pages";
+import { recordVisit } from "@/lib/recentlyVisited";
 import { Favorite } from "@/models/Favorite";
 import { Page } from "@/models/Page";
 import { PageEditorClient as PageEditor } from "@/components/PageEditorClient";
@@ -20,6 +21,8 @@ export default async function PageEditorPage({
   const { id } = await params;
   const page = await getAccessiblePage(id, session);
   if (!page) notFound();
+
+  await recordVisit(session, page._id);
 
   const [favorite, childPages] = await Promise.all([
     Favorite.findOne({ userId: session.userId, pageId: page._id }),
