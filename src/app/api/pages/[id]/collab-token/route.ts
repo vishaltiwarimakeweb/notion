@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSessionFromCookies } from "@/lib/auth";
 import { getAccessiblePage } from "@/lib/pages";
-import { Content } from "@/models/Content";
+import { signCollabToken } from "@/lib/collabToken";
 
-export async function PUT(
-  request: Request,
+export async function GET(
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSessionFromCookies();
@@ -18,16 +18,11 @@ export async function PUT(
     return NextResponse.json({ error: "Page not found." }, { status: 404 });
   }
 
-  const body = await request.json();
-  if (!Array.isArray(body.blocks)) {
-    return NextResponse.json({ error: "blocks must be an array." }, { status: 400 });
-  }
+  const token = await signCollabToken({
+    userId: session.userId,
+    userType: session.userType,
+    pageId: page._id.toString(),
+  });
 
-  const content = await Content.findOneAndUpdate(
-    { pageId: page._id },
-    { blocks: body.blocks },
-    { upsert: true, new: true }
-  );
-
-  return NextResponse.json({ blocks: content.blocks });
+  return NextResponse.json({ token });
 }

@@ -1,49 +1,112 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as Y from "yjs";
+import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
-import type { PartialBlock } from "@blocknote/core";
 import "@blocknote/core/style.css";
 import "@blocknote/shadcn/style.css";
 import { toast } from "react-toastify";
 import { useTheme } from "@/components/ThemeProvider";
+import { COLLAB_FRAGMENT_NAME } from "@/lib/collab";
 
-const SAVE_DEBOUNCE_MS = 1000;
+const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL ?? "ws://localhost:1234";
 
-export function PageEditor({
-  pageId,
-  initialBlocks,
-}: {
-  pageId: string;
-  initialBlocks: PartialBlock[];
-}) {
+// Deterministic color per user so the same person always gets the same cursor color.
+function colorForName(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${hash % 360}, 70%, 50%)`;
+}
+
+export function PageEditor({ pageId, userName }: { pageId: string; userName: string }) {
   const { theme } = useTheme();
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
-  const editor = useCreateBlockNote({
-    initialContent: initialBlocks.length > 0 ? initialBlocks : undefined,
-  });
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/pages/${pageId}/collab-token`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setToken(data.token ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Failed to connect to the collaborative editor.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageId]);
 
-  function handleChange() {
-    if (saveTimeout.current) clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/pages/${pageId}/content`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ blocks: editor.document }),
-        });
-        if (!res.ok) throw new Error();
-      } catch {
-        toast.error("Failed to save changes.");
-      }
-    }, SAVE_DEBOUNCE_MS);
+  if (!token) {
+    return (
+      <div className="mt-6 rounded-xl border border-neutral-200 p-6 text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        Connecting…
+      </div>
+    );
   }
 
   return (
+    <ConnectedEditor pageId={pageId} token={token} userName={userName} theme={theme} />
+  );
+}
+
+function ConnectedEditor({
+  pageId,
+  token,
+  userName,
+  theme,
+}: {
+  pageId: string;
+  token: string;
+  userName: string;
+  theme: "light" | "dark";
+}) {
+  const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">(
+    "connecting"
+  );
+
+  const { doc, provider } = useMemo(() => {
+    const doc = new Y.Doc();
+    const provider = new HocuspocusProvider({
+      url: COLLAB_WS_URL,
+      name: pageId,
+      document: doc,
+      token,
+      onStatus: ({ status }) => setStatus(status),
+    });
+    return { doc, provider };
+  }, [pageId, token]);
+
+  useEffect(() => {
+    return () => {
+      provider.destroy();
+      doc.destroy();
+    };
+  }, [provider, doc]);
+
+  const editor = useCreateBlockNote({
+    collaboration: {
+      provider: { awareness: provider.awareness ?? undefined },
+      fragment: doc.getXmlFragment(COLLAB_FRAGMENT_NAME),
+      user: { name: userName, color: colorForName(userName) },
+    },
+  });
+
+  return (
     <div className="mt-6 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
-      <BlockNoteView editor={editor} theme={theme} onChange={handleChange} />
+      <div className="flex items-center gap-1.5 border-b border-neutral-200 px-3 py-1.5 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${
+            status === "connected" ? "bg-emerald-500" : "bg-amber-500"
+          }`}
+        />
+        {status === "connected" ? "Live" : status === "connecting" ? "Connecting…" : "Disconnected"}
+      </div>
+      <BlockNoteView editor={editor} theme={theme} />
     </div>
   );
 }

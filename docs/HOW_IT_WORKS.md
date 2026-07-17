@@ -40,7 +40,7 @@ The dashboard, workspace detail page, and Navbar all branch on `session.userType
 
 Both Managers (any workspace in their org) and Employees (only workspaces they're a `WorkspaceMember` of) can create and edit pages — `src/lib/workspaces.ts`'s `getAccessibleWorkspace(id, session)` branches on `session.userType` to enforce that, and `src/lib/pages.ts`'s `getAccessiblePage`/`getPageForMutation` build on top of it for page-level routes.
 
-Pages nest via `parentPageId` (`src/models/Page.ts`) — a general tree (any number of children per page), not a chain. A page's actual content lives in a separate `Content` document (`src/models/Content.ts`) holding the whole Blocknote `blocks` array as one JSON blob — that's `editor.document`'s native shape, fetched/replaced as a unit, not modeled as individual block rows in Mongo. `PUT /api/pages/[id]/content` (`src/app/api/pages/[id]/content/route.ts`) replaces the array wholesale; the editor (`src/components/PageEditor.tsx`) debounces ~1s after the last keystroke before calling it.
+Pages nest via `parentPageId` (`src/models/Page.ts`) — a general tree (any number of children per page), not a chain. A page's actual content lives in a separate `Content` document (`src/models/Content.ts`). Since Phase 4, content is edited exclusively through real-time collaboration (see below) — there's no plain autosave route anymore.
 
 The editor itself (`@blocknote/core` + `@blocknote/react` + `@blocknote/shadcn`) touches `window` during render and can't be server-rendered — `src/components/PageEditorClient.tsx` wraps it in `next/dynamic(..., { ssr: false })` (a plain static import in the Server Component page would 500 with `window is not defined`; `next/dynamic`'s `ssr: false` option also can't be used directly inside a Server Component, hence the separate client-only wrapper file).
 
@@ -48,10 +48,24 @@ Soft-deleting a page cascades to every descendant (`cascadeSoftDelete` in `src/l
 
 Favorites (`src/models/Favorite.ts`) use the same `{userId, userType}` pattern as `Message`, so either a Manager or an Employee can favorite a page.
 
+## Real-time collaboration
+
+Page content syncs live via Yjs, through a **standalone WebSocket server** (`server/collaboration.ts`, built on Hocuspocus) — this is a separate long-running Node process from the Next.js app (`npm run dev:collab` locally), since Next.js API routes can't hold persistent connections. It has to be running for the page editor to work at all; there's no non-collaborative fallback.
+
+**Auth**: the session cookie is `httpOnly`, so client JS can't hand it to the WebSocket provider directly. Instead, `PageEditor` first calls `GET /api/pages/[id]/collab-token` (a same-origin fetch — the cookie *is* sent) which checks page access the normal way (`getAccessiblePage`) and signs a 5-minute `jose` JWT (`src/lib/collabToken.ts`) containing `{userId, userType, pageId}`. That token is passed to `HocuspocusProvider`, and the collaboration server's `onAuthenticate` hook verifies it and confirms the `pageId` matches the room being joined.
+
+**Persistence & migration**: `Content.yjsState` (a `Buffer`) is the source of truth once a page has been opened collaboratively. `onLoadDocument` loads it if present; if a page predates Phase 4 (has `blocks` JSON but no `yjsState`), it's bootstrapped transparently on first collaborative open via `@blocknote/server-util`'s `blocksToYXmlFragment` — no bulk migration needed. `onStoreDocument` (debounced by Hocuspocus itself) saves the updated `yjsState` plus a derived `blocks` JSON snapshot, kept for anything that wants plain-JSON reads later without decoding Yjs.
+
+Presence (collaborator cursors, a deterministic color per user) comes along for free from the same `collaboration: {provider, fragment, user}` config Blocknote needs for content sync — no separate infrastructure.
+
+**Module system note**: `server/collaboration.ts` is actually `server/collaboration.mts`. The project has no `"type": "module"` in `package.json`, so a plain `.ts` file run via `tsx` resolves dependencies as CommonJS — which broke `@blocknote/server-util` (a Tiptap ESM/CJS interop bug, `Code.extend is not a function`) at import time. `.mts` forces Node/tsx to treat the file as ESM regardless of the rest of the project, without changing the whole project's module type.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-Real-time collaboration, inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md), and RecentlyVisited (Phase 6).
+Inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md), and RecentlyVisited (Phase 6).
+
+Production deployment of the collaboration server (a second service alongside the Next.js app) isn't configured — no hosting target has been chosen yet.
