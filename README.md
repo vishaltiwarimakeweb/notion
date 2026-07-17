@@ -4,7 +4,7 @@ An AI-powered, collaborative B2B multi-tenancy CRUD SaaS — organizations get w
 
 ## Tech stack
 
-Next.js (App Router) + TypeScript + Tailwind CSS, MongoDB (Mongoose), Redis (OTP storage), JWT sessions (`jose`), Brevo (transactional email), Cloudinary (media, planned), Razorpay (billing, planned).
+Next.js (App Router) + TypeScript + Tailwind CSS, MongoDB (Mongoose), Redis (OTP storage), JWT sessions (`jose`), Brevo (transactional email), Blocknote (`@blocknote/shadcn`) for page content, Cloudinary (media, planned), Razorpay (billing, planned).
 
 ## Getting started
 
@@ -18,7 +18,7 @@ npm run dev
 
 3. Open [http://localhost:3000](http://localhost:3000).
 
-## What's implemented so far (Phases 0–2)
+## What's implemented so far (Phases 0–3)
 
 - Manager registration (creates an Organization + Manager) and login, with a JWT session cookie.
 - Forgot-password flow via a Redis-backed, rate-limited OTP emailed through Brevo.
@@ -26,5 +26,6 @@ npm run dev
 - Landing page, and a light/dark theme toggle across the app.
 - Workspace CRUD, scoped to the manager's own organization: create, rename, trash (soft-delete), and restore, with a dashboard list, a per-workspace settings page, and a trash page.
 - Employee invitation: a manager invites an email to a workspace; the employee accepts via a public link and signs in with Google or GitHub (no password) — see `GOOGLE_CLIENT_ID`/`GITHUB_CLIENT_ID` etc. in `.env.example` to enable the OAuth handshake. Dashboard and workspace pages are read-only for employees, scoped to workspaces they're assigned to.
+- Page CRUD with infinitely nestable pages and a Blocknote block editor, available to both managers and assigned employees: create, rename, trash (cascades to nested pages), restore, favorite, and edit content (autosaved).
 
-Pages, real-time collaboration, AI features, and billing are not implemented yet — see the phased roadmap in [docs/PRE_BUILD_PLAN.md](docs/PRE_BUILD_PLAN.md).
+Real-time collaboration, AI features, and billing are not implemented yet — see the phased roadmap in [docs/PRE_BUILD_PLAN.md](docs/PRE_BUILD_PLAN.md).

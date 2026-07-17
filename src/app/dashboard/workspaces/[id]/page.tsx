@@ -1,48 +1,58 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import mongoose from "mongoose";
-import { getCurrentManager, getCurrentEmployee } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
-import { Workspace } from "@/models/Workspace";
-import { WorkspaceMember } from "@/models/WorkspaceMember";
+import { Trash2 } from "lucide-react";
+import { getSessionFromCookies } from "@/lib/auth";
+import { getAccessibleWorkspace } from "@/lib/workspaces";
+import { Page } from "@/models/Page";
 import { WorkspaceSettings } from "@/components/WorkspaceSettings";
 import { InviteMemberForm } from "@/components/InviteMemberForm";
+import { CreatePageForm } from "@/components/CreatePageForm";
+import { PageTree } from "@/components/PageTree";
 
 export default async function WorkspacePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const manager = await getCurrentManager();
-  const employee = manager ? null : await getCurrentEmployee();
-  if (!manager && !employee) redirect("/login");
+  const session = await getSessionFromCookies();
+  if (!session) redirect("/login");
 
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) notFound();
-
-  await connectToDatabase();
-  const workspace = await Workspace.findOne({ _id: id, isDeleted: false });
+  const workspace = await getAccessibleWorkspace(id, session);
   if (!workspace) notFound();
 
-  if (manager) {
-    if (!workspace.organizationId.equals(manager.organizationId)) notFound();
-  } else {
-    const membership = await WorkspaceMember.findOne({
-      workspaceId: workspace._id,
-      employeeId: employee!._id,
-    });
-    if (!membership) notFound();
-  }
+  const pages = await Page.find({ workspaceId: workspace._id, isDeleted: false }).sort({
+    createdAt: 1,
+  });
+  const pageTree = pages.map((page) => ({
+    id: page._id.toString(),
+    title: page.title,
+    parentPageId: page.parentPageId?.toString() ?? null,
+  }));
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-        {workspace.title}
-      </h1>
-      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-        Pages are coming in a future update.
-      </p>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
+          {workspace.title}
+        </h1>
+        <Link
+          href={`/dashboard/workspaces/${workspace._id.toString()}/trash`}
+          className="flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+        >
+          <Trash2 size={16} />
+          Trash
+        </Link>
+      </div>
 
-      {manager ? (
+      <div className="mt-8">
+        <CreatePageForm workspaceId={workspace._id.toString()} />
+        <div className="mt-4">
+          <PageTree pages={pageTree} />
+        </div>
+      </div>
+
+      {session.userType === "manager" ? (
         <>
           <div className="mt-8">
             <InviteMemberForm workspaceId={workspace._id.toString()} />
