@@ -18,10 +18,18 @@ To complete the reset, the manager submits email + OTP + new password together (
 
 Emails are sent via Brevo's transactional email API (`src/lib/email.ts`).
 
+## Workspaces
+
+Managers create/rename/trash/restore workspaces scoped to their own organization (`src/models/Workspace.ts`, `src/app/api/workspaces/`). Every id-scoped route (`GET/PATCH/DELETE /api/workspaces/[id]`) checks that the workspace's `organizationId` matches the requesting manager's before doing anything — a workspace belonging to a different organization returns 404 (not 403), so a request can't distinguish "doesn't exist" from "exists but isn't yours."
+
+Deleting a workspace sets `isDeleted`/`deletedAt` rather than removing the document (`DELETE /api/workspaces/[id]`); restoring is a `PATCH { isDeleted: false }` rather than a separate endpoint, since both rename and restore are partial updates to the same resource. `GET /api/workspaces/trash` lists only the soft-deleted ones, powering the `/dashboard/trash` page.
+
+`WorkspaceMember` (`src/models/WorkspaceMember.ts`) exists as a schema already but has no code path that writes to it yet — it stays empty until Phase 2 adds Employees and something can actually be assigned to a workspace. Workspace member counts aren't shown in the UI for the same reason.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-Workspaces, pages/blocks, real-time collaboration, inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md).
+Employee invitation/OAuth, pages/blocks, real-time collaboration, inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md).

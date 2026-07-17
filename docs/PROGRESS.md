@@ -31,8 +31,16 @@ Full end-to-end verification completed against real MongoDB Atlas + Redis Cloud 
 
 Not covered: actual email deliverability/formatting of the Brevo OTP email (the test used a non-inboxed address; the API call itself succeeded), and click-driven UI testing (theme toggle, form validation feedback) — no headless browser tooling was available in this sandbox, so that was verified by code review only.
 
+**Phase 1 — Workspace CRUD (implemented, on branch `feature/workspace-crud`, branched off `feature/manager-auth`):**
+
+- `Workspace` model (`organizationId`, `title` minlength 6, `isDeleted`/`deletedAt` for trash) and `WorkspaceMember` model (schema only for now — stays empty until Phase 2 adds Employees; `employeeId` refs an `Employee` model that doesn't exist yet, which is fine, `ref` is just a string).
+- Manager-only, org-scoped CRUD: `POST/GET /api/workspaces`, `GET /api/workspaces/trash`, `GET/PATCH/DELETE /api/workspaces/[id]`. `DELETE` soft-deletes; restore is `PATCH { isDeleted: false }` rather than a separate route.
+- Cross-org access returns 404 (not 403) to avoid confirming another org's resource exists.
+- Dashboard now lists real workspaces + a create form; new workspace detail page (`/dashboard/workspaces/[id]`) handles rename/delete; new trash page (`/dashboard/trash`) handles restore. Member counts are intentionally not shown yet (see NOTES.md — no real data to display until Phase 2).
+- `npm run lint` and `npx tsc --noEmit` both clean.
+- Live-tested end-to-end against real Mongo: validation (short title → 400), full CRUD + trash/restore cycle, two-manager cross-org isolation (404 on both the API and the page route), invalid-ObjectId handling (404 not 500), unauthenticated access (401). Test data cleaned up afterward.
+
 ## Next
 
-- Push branch `feature/manager-auth` (still blocked — no GitHub credentials in this sandbox) and open a PR.
-- Design Phase 1: Workspace CRUD (manager-only) + `WorkspaceMember` schema + plan member-limit enforcement.
-- Design Phase 2: Employee invitation (`Invitation` schema + Brevo) + Google/GitHub OAuth + auto-assign to workspace on accept.
+- Push branches `feature/manager-auth` and `feature/workspace-crud` (still blocked — no GitHub credentials in this sandbox) and open PRs.
+- Design Phase 2: Employee invitation (`Invitation` schema + Brevo) + Google/GitHub OAuth + auto-assign to workspace on accept + the deferred member-limit enforcement (now that `WorkspaceMember` has a real caller).
