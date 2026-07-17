@@ -1,48 +1,65 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { getCurrentManager } from "@/lib/auth";
+import { getCurrentManager, getCurrentEmployee } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { Workspace } from "@/models/Workspace";
+import { WorkspaceMember } from "@/models/WorkspaceMember";
 import { CreateWorkspaceForm } from "@/components/CreateWorkspaceForm";
 
 export default async function DashboardPage() {
   const manager = await getCurrentManager();
-  if (!manager) redirect("/login");
+  const employee = manager ? null : await getCurrentEmployee();
+  if (!manager && !employee) redirect("/login");
 
   await connectToDatabase();
-  const workspaces = await Workspace.find({
-    organizationId: manager.organizationId,
-    isDeleted: false,
-  }).sort({ createdAt: -1 });
+
+  const workspaces = manager
+    ? await Workspace.find({
+        organizationId: manager.organizationId,
+        isDeleted: false,
+      }).sort({ createdAt: -1 })
+    : await (async () => {
+        const memberships = await WorkspaceMember.find({ employeeId: employee!._id });
+        return Workspace.find({
+          _id: { $in: memberships.map((m) => m.workspaceId) },
+          isDeleted: false,
+        }).sort({ createdAt: -1 });
+      })();
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-            Welcome, {manager.name}
+            Welcome, {manager ? manager.name : employee!.name}
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-            Your organization&apos;s workspaces.
+            {manager ? "Your organization's workspaces." : "Your assigned workspaces."}
           </p>
         </div>
-        <Link
-          href="/dashboard/trash"
-          className="flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
-        >
-          <Trash2 size={16} />
-          Trash
-        </Link>
+        {manager && (
+          <Link
+            href="/dashboard/trash"
+            className="flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+          >
+            <Trash2 size={16} />
+            Trash
+          </Link>
+        )}
       </div>
 
-      <div className="mt-8">
-        <CreateWorkspaceForm />
-      </div>
+      {manager && (
+        <div className="mt-8">
+          <CreateWorkspaceForm />
+        </div>
+      )}
 
       {workspaces.length === 0 ? (
         <p className="mt-8 text-sm text-neutral-600 dark:text-neutral-400">
-          No workspaces yet. Create your first one above.
+          {manager
+            ? "No workspaces yet. Create your first one above."
+            : "You haven't been assigned to any workspaces yet."}
         </p>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

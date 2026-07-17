@@ -289,3 +289,8 @@ userType : String, enum : [manager, employee], required
 ## Phase 9 :
 
 - Billing via Razorpay (checkout + plan upgrade/downgrade UI; limit logic already enforced since Phase 1)
+
+## Phase 10 :
+
+- Edit profile UI with backend features as well, both managers and employees can update/delete their profiles.
+- Updating password requires entering correct current password or by verifying a 5 digits OTP sent to the registered email ( Redis + Brevo )

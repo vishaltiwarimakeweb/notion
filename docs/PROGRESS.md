@@ -40,7 +40,21 @@ Not covered: actual email deliverability/formatting of the Brevo OTP email (the 
 - `npm run lint` and `npx tsc --noEmit` both clean.
 - Live-tested end-to-end against real Mongo: validation (short title → 400), full CRUD + trash/restore cycle, two-manager cross-org isolation (404 on both the API and the page route), invalid-ObjectId handling (404 not 500), unauthenticated access (401). Test data cleaned up afterward.
 
+**Phase 2 — Employee Invitation & OAuth (implemented, on branch `feature/employee-invitation`, branched off `feature/workspace-crud`):**
+
+- `Employee` and `Invitation` models; `src/lib/billing.ts` (`getMemberLimit`) — the member-limit check deferred from Phase 1 now has a real caller.
+- **Session system generalized**: `SessionPayload` changed from `{managerId,...}` to `{userId, userType: "manager"|"employee", ...}`. `getCurrentManager()` behaves identically to before; added `getCurrentEmployee()`. Only 4 files needed the rename (`session.ts`, `auth.ts`, register/login routes) — confirmed by grep before touching anything.
+- **OAuth implemented manually** (no Auth.js/NextAuth) — reuses the existing `jose`-based session system instead of running two parallel auth systems. Authorization-code flow for Google + GitHub; CSRF `state` is a short-lived signed JWT carrying `{provider, inviteToken}`, so no extra cookie/Redis entry is needed for it.
+- Manager invite flow: `POST /api/workspaces/[id]/invite` — checks the plan's member limit, skips straight to a `WorkspaceMember` if the email is already an Employee in the org (per spec, no re-invite needed), otherwise creates an `Invitation` and emails a link via Brevo (`sendInvitationEmail` in `src/lib/email.ts`).
+- `/invite/[token]` public page + `GET /api/oauth/[provider]/start` and `GET /api/oauth/[provider]/callback` — callback verifies the OAuth-returned email matches the invitation's email before creating anything (closes an obvious "redeem someone else's invite" hole that wasn't explicit in the spec but is a clear security gap otherwise), re-checks the member limit defensively, finds-or-creates the `Employee`, creates the `WorkspaceMember`, marks the invitation accepted, and signs the employee in.
+- Dashboard, workspace detail page, and Navbar are now session-type-aware: a Manager sees the full org view; an Employee sees only their assigned workspaces, read-only (no create/rename/delete controls), and the Navbar correctly shows "Dashboard/Log out" for either session type instead of only Managers.
+- **Scope trim** (see NOTES.md): manager-initiated unassign, employee self-unassign, and a workspace member-list view are deferred to a fast-follow — this phase is invite-and-accept only, matching what the roadmap actually committed Phase 2 to.
+- `npm run lint` and `npx tsc --noEmit` both clean.
+- Live-tested against real Mongo/Redis/Brevo: invite validation, real invitation-email send, the existing-employee direct-assign shortcut, member-limit enforcement (seeded to the Free plan's 2-member cap and confirmed the 3rd invite is rejected, and that an already-a-member invite is rejected), cross-org protection on the invite endpoint (404), and a full regression pass of every Phase 0/1 endpoint to confirm the session field rename didn't break anything. Test data cleaned up afterward.
+- **Not live-testable here**: the actual OAuth code exchange needs real `GOOGLE_CLIENT_ID/SECRET` and `GITHUB_CLIENT_ID/SECRET` (not yet in `.env.local`). Confirmed the code path is correct up to that boundary — hitting `/api/oauth/google/start` currently 500s with a clear `GOOGLE_CLIENT_ID is not set` error, which is the expected/documented state, not a bug.
+
 ## Next
 
-- Push branches `feature/manager-auth` and `feature/workspace-crud` (still blocked — no GitHub credentials in this sandbox) and open PRs.
-- Design Phase 2: Employee invitation (`Invitation` schema + Brevo) + Google/GitHub OAuth + auto-assign to workspace on accept + the deferred member-limit enforcement (now that `WorkspaceMember` has a real caller).
+- Push branches `feature/manager-auth`, `feature/workspace-crud`, and `feature/employee-invitation` (still blocked — no GitHub credentials in this sandbox) and open PRs.
+- Once you have Google/GitHub OAuth app credentials (each needs `http://localhost:3000/api/oauth/<provider>/callback` allow-listed as a redirect URI), add them to `.env.local` so the full employee sign-in flow can be live-tested end-to-end.
+- Design Phase 3: Page CRUD + Page content (Blocknote blocks) + next-page reference, per `docs/PRE_BUILD_PLAN.md`.

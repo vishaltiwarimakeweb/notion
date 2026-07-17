@@ -13,7 +13,8 @@ function getSecret() {
 }
 
 export type SessionPayload = {
-  managerId: string;
+  userId: string;
+  userType: "manager" | "employee";
   organizationId: string;
   email: string;
 };

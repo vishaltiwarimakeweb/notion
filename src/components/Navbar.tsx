@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getCurrentManager } from "@/lib/auth";
+import { getSessionFromCookies } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Button } from "@/components/ui/Button";
 
 export async function Navbar() {
-  const manager = await getCurrentManager();
+  const session = await getSessionFromCookies();
 
   return (
     <header className="border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80">
@@ -16,7 +16,7 @@ export async function Navbar() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          {manager ? (
+          {session ? (
             <>
               <Link href="/dashboard" className="text-sm font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">
                 Dashboard
