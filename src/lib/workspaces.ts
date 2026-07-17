@@ -30,3 +30,17 @@ export async function getAccessibleWorkspace(id: string, session: SessionPayload
   });
   return membership ? workspace : null;
 }
+
+// Returns the workspace IDs a session may act on, or null to mean "unrestricted within
+// the org" (a Manager). Callers combine this with an organizationId filter for Managers
+// and an _id/workspaceId $in filter for Employees. Shared by /api/search and the
+// assistant tools so the manager-vs-employee branching lives in exactly one place.
+export async function getAccessibleWorkspaceIds(
+  session: SessionPayload
+): Promise<mongoose.Types.ObjectId[] | null> {
+  if (session.userType === "manager") return null;
+
+  await connectToDatabase();
+  const memberships = await WorkspaceMember.find({ employeeId: session.userId });
+  return memberships.map((m) => m.workspaceId);
+}

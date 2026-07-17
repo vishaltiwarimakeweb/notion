@@ -3,12 +3,17 @@ import { connectToDatabase } from "@/lib/db";
 import { getSessionFromCookies } from "@/lib/auth";
 import { retrieveContext } from "@/lib/rag";
 import { generateTextWithFallback } from "@/lib/inlineAi";
+import { createAssistantTools } from "@/lib/assistantTools";
 import { Message } from "@/models/Message";
 import { Page } from "@/models/Page";
 
 const MAX_MESSAGE_LENGTH = 2000;
 
-const SYSTEM_PROMPT = `You are an assistant for a team's internal workspace app. Answer questions using ONLY the knowledge base excerpts provided below — do not use outside knowledge. If the answer isn't contained in the excerpts, say you don't know rather than guessing.`;
+const SYSTEM_PROMPT = `You are an assistant for a team's internal workspace app.
+
+For questions about the content of pages, answer using ONLY the knowledge base excerpts provided below — do not use outside knowledge. If the answer isn't contained in the excerpts, say you don't know rather than guessing.
+
+For requests to find, list, create, rename, or delete pages/workspaces, use the tools available to you instead of guessing. Tools only ever affect what the current user has access to — if a tool reports something wasn't found, say so plainly rather than assuming it doesn't exist at all.`;
 
 export async function GET() {
   const session = await getSessionFromCookies();
@@ -65,7 +70,12 @@ export async function POST(request: Request) {
 
   let reply: string;
   try {
-    reply = await generateTextWithFallback({ system: SYSTEM_PROMPT, prompt });
+    const result = await generateTextWithFallback({
+      system: SYSTEM_PROMPT,
+      prompt,
+      tools: createAssistantTools(session),
+    });
+    reply = result.text.trim();
   } catch {
     return NextResponse.json(
       { error: "AI is unavailable right now. Please try again later." },

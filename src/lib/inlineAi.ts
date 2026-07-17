@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, stepCountIs, type ToolSet } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
@@ -23,22 +23,27 @@ const PROVIDERS = [
   () => groq(process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile"),
 ];
 
-// Shared fallback loop, reused by inline AI (fixed actions, below) and the RAG chat
-// assistant (src/app/api/ai/chat/route.ts), which needs an arbitrary system/prompt pair.
+// Shared fallback loop, reused by inline AI (fixed actions, below) and the RAG+tools
+// chat assistant (src/app/api/ai/chat/route.ts), which needs an arbitrary system/prompt
+// pair and optional tool-calling. Returns the full generateText result so callers that
+// need tool-call/step info (the chat route) can inspect it; generateWithFallback below
+// just extracts the final text for inline AI's fixed-action callers.
 export async function generateTextWithFallback(options: {
   system: string;
   prompt: string;
-}): Promise<string> {
+  tools?: ToolSet;
+}) {
   let lastError: unknown;
 
   for (const getModel of PROVIDERS) {
     try {
-      const { text: result } = await generateText({
+      return await generateText({
         model: getModel(),
         system: options.system,
         prompt: options.prompt,
+        tools: options.tools,
+        stopWhen: options.tools ? stepCountIs(5) : undefined,
       });
-      return result.trim();
     } catch (error) {
       lastError = error;
     }
@@ -51,5 +56,6 @@ export async function generateWithFallback(
   action: InlineAiAction,
   text: string
 ): Promise<string> {
-  return generateTextWithFallback({ system: SYSTEM_PROMPTS[action], prompt: text });
+  const result = await generateTextWithFallback({ system: SYSTEM_PROMPTS[action], prompt: text });
+  return result.text.trim();
 }
