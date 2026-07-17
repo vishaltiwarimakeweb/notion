@@ -65,7 +65,7 @@
 
 # Architecture Rules :
 
-- Frontend --> Backend --> AI --> MCP Tools --> Database --> Response --> AI --> User
+- Frontend Request --> Needs AI ? --> AI --> MCP Tools --> Database --> Response --> AI --> User : Backend --> Response --> User
 - Never skip any stage in the flow.
 - Never invent MCP tools unless asked by the admin only.
 - Never invent backend APIs.
