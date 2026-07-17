@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider, noFlashThemeScript } from "@/components/ThemeProvider";
 import { ToastContainer } from "react-toastify";
 import { Navbar } from "@/components/Navbar";
+import { AiChatWidget } from "@/components/AiChatWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
         <ThemeProvider>
           <Navbar />
           <main className="flex-1">{children}</main>
+          <AiChatWidget />
           <ToastContainer position="top-right" theme="colored" />
         </ThemeProvider>
       </body>

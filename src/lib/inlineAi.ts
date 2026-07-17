@@ -23,18 +23,20 @@ const PROVIDERS = [
   () => groq(process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile"),
 ];
 
-export async function generateWithFallback(
-  action: InlineAiAction,
-  text: string
-): Promise<string> {
+// Shared fallback loop, reused by inline AI (fixed actions, below) and the RAG chat
+// assistant (src/app/api/ai/chat/route.ts), which needs an arbitrary system/prompt pair.
+export async function generateTextWithFallback(options: {
+  system: string;
+  prompt: string;
+}): Promise<string> {
   let lastError: unknown;
 
   for (const getModel of PROVIDERS) {
     try {
       const { text: result } = await generateText({
         model: getModel(),
-        system: SYSTEM_PROMPTS[action],
-        prompt: text,
+        system: options.system,
+        prompt: options.prompt,
       });
       return result.trim();
     } catch (error) {
@@ -42,7 +44,12 @@ export async function generateWithFallback(
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("All AI providers failed.");
+  throw lastError instanceof Error ? lastError : new Error("All AI providers failed.");
+}
+
+export async function generateWithFallback(
+  action: InlineAiAction,
+  text: string
+): Promise<string> {
+  return generateTextWithFallback({ system: SYSTEM_PROMPTS[action], prompt: text });
 }

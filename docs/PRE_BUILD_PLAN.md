@@ -253,6 +253,25 @@ userType : String, enum : [manager, employee], required
  updatedAt : default mongodb timestamp
 ```
 
+Note: this model was documented from the very first pre-build review but never actually implemented until Phase 7 (`src/models/Message.ts`), since nothing needed it until the AI assistant widget.
+
+## KnowledgeChunk
+
+```
+organizationId : mongoose.Schema.Types.ObjectId, ref to organization, required
+workspaceId : mongoose.Schema.Types.ObjectId, ref to workspace, required
+pageId : mongoose.Schema.Types.ObjectId, ref to page, required
+chunkIndex : Number, required ( position within the page's chunks )
+text : String, required ( the chunk's plain text, derived from the page's Blocknote content via blocksToMarkdownLossy )
+embedding : [Number], required ( 1536-dim vector from OpenAI's text-embedding-3-small )
+createdAt : default mongodb timestamp
+updatedAt : default mongodb timestamp
+```
+
+index By : pageId (for cleanup on reindex), plus an Atlas Vector Search index named `knowledge_chunks_vector_index` on `embedding` (cosine similarity, 1536 dimensions) with `organizationId` as a filter field — created by `scripts/create-vector-index.mts`, not by Mongoose (Vector Search indexes aren't a Mongoose schema-level concept).
+
+Not modeled at the schema level: chunks are deleted and fully regenerated per page on every reindex (`src/lib/ragIndexing.ts`'s `reindexPage`) rather than diffed/updated in place — simpler, and reindexing is infrequent (once per debounced content save).
+
 # Building Plan
 
 ## Phase 0 :

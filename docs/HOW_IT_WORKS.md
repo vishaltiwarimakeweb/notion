@@ -74,12 +74,22 @@ The search bar (`src/components/SearchBar.tsx`) appears in two places, each hitt
 
 Every time `/dashboard/pages/[id]` is opened, `recordVisit` (`src/lib/recentlyVisited.ts`) upserts a `RecentlyVisited` row keyed on `(userId, pageId)`, so revisiting a page just bumps its `visitedAt` instead of creating a duplicate entry. `getRecentlyVisitedPages` (used by both `GET /api/recently-visited` and the `/dashboard/recent` page) fetches a buffer of recent visits, drops any pointing at pages that have since been trashed, and returns the 10 most recent.
 
+## AI assistant widget (RAG)
+
+A fixed bottom-right chat widget (`src/components/AiChatWidgetClient.tsx`, wrapped by the session-checking `AiChatWidget.tsx` — same server-wrapper pattern as `Navbar`) is rendered in `src/app/layout.tsx`, visible on every page but only for a logged-in session. It answers **only from the org's own content** — no outside knowledge, no tool-calling yet (MCP tools are Phase 8).
+
+**Keeping the knowledge base in sync**: every time the collaboration server persists a page's content (`onStoreDocument`, Phase 4), it also calls `reindexPage` (`src/lib/ragIndexing.ts`) — best-effort, wrapped in a try/catch so an indexing failure never blocks the actual content save. `reindexPage` converts the page's Blocknote content to plain text (`@blocknote/server-util`'s `blocksToMarkdownLossy`), splits it into ~1500-character chunks (`src/lib/embeddings.ts`'s `chunkText` — simple fixed-size, no semantic splitter), embeds each chunk (`text-embedding-3-small`), and replaces that page's `KnowledgeChunk` documents. Pages that existed before this phase need a one-time `npm run backfill:embeddings` (their `onStoreDocument` won't refire until their next edit).
+
+**Retrieval**: `POST /api/ai/chat` embeds the user's question and runs a `$vectorSearch` aggregation against `KnowledgeChunk`, pre-filtered by `organizationId` at the Atlas Vector Search index level (`knowledge_chunks_vector_index`, created by `npm run setup:vector-index` — a real MongoDB Atlas Search index, not a Mongoose-level construct). An Employee session gets a further in-app filter down to workspaces they're a member of (`src/lib/rag.ts`'s `retrieveContext`). The retrieved chunks become the system-prompt context for `generateTextWithFallback` (the same OpenAI→Gemini→Groq chain from Phase 5's inline AI, generalized to accept an arbitrary `{system, prompt}` instead of only the four fixed inline-AI actions). Both the user's question and the assistant's reply are persisted to `Message`.
+
+**Module boundary note**: `reindexPage` (in `src/lib/ragIndexing.ts`) must never be imported from `src/app/**` — `@blocknote/server-util` calls `React.createContext` at import time, which Next.js's route/RSC bundler rejects outside a "use client" file, 500ing any route that pulls it in even transitively. `retrieveContext` (in `src/lib/rag.ts`, safe for API routes) is deliberately kept in a separate file from `reindexPage` for exactly this reason.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-The AI assistant widget and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, and a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md).
+MCP tools for the AI assistant (Phase 8 — it's currently Q&A-only, can't take actions like editing or deleting a page) and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, and a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md).
 
 Production deployment of the collaboration server (a second service alongside the Next.js app) isn't configured — no hosting target has been chosen yet.

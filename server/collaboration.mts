@@ -9,6 +9,7 @@ import { verifyCollabToken } from "../src/lib/collabToken";
 import { COLLAB_FRAGMENT_NAME } from "../src/lib/collab";
 import { connectToDatabase } from "../src/lib/db";
 import { Content } from "../src/models/Content";
+import { reindexPage } from "../src/lib/ragIndexing";
 
 const port = Number(process.env.COLLAB_PORT ?? 1234);
 
@@ -52,6 +53,14 @@ const server = new Server({
       { yjsState, blocks },
       { upsert: true }
     );
+
+    // Keep the AI assistant's knowledge base in sync. Best-effort: a reindex failure
+    // (e.g. embeddings API down) shouldn't prevent the actual content save above.
+    try {
+      await reindexPage(documentName);
+    } catch (error) {
+      console.error(`Failed to reindex page ${documentName} for the knowledge base:`, error);
+    }
   },
 });
 

@@ -7,7 +7,9 @@
     "dev:collab": "node --env-file=.env.local --import tsx server/collaboration.mts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup:vector-index": "node --env-file=.env.local --import tsx scripts/create-vector-index.mts",
+    "backfill:embeddings": "node --env-file=.env.local --import tsx scripts/backfill-embeddings.mts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.17",
