@@ -10,6 +10,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.17",
+    "@ai-sdk/groq": "^4.0.11",
+    "@ai-sdk/openai": "^4.0.15",
     "@blocknote/core": "^0.51.4",
     "@blocknote/react": "^0.51.4",
     "@blocknote/server-util": "^0.51.4",
@@ -17,6 +20,7 @@
     "@getbrevo/brevo": "^6.0.2",
     "@hocuspocus/provider": "^4.4.0",
     "@hocuspocus/server": "^4.4.0",
+    "ai": "^7.0.30",
     "bcrypt": "^6.0.0",
     "ioredis": "^5.11.1",
     "jose": "^6.2.3",

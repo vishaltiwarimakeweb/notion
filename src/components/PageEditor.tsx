@@ -10,6 +10,7 @@ import "@blocknote/shadcn/style.css";
 import { toast } from "react-toastify";
 import { useTheme } from "@/components/ThemeProvider";
 import { COLLAB_FRAGMENT_NAME } from "@/lib/collab";
+import { InlineAiToolbar } from "@/components/InlineAiToolbar";
 
 const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL ?? "ws://localhost:1234";
 
@@ -107,6 +108,7 @@ function ConnectedEditor({
         {status === "connected" ? "Live" : status === "connecting" ? "Connecting…" : "Disconnected"}
       </div>
       <BlockNoteView editor={editor} theme={theme} />
+      <InlineAiToolbar editor={editor} />
     </div>
   );
 }

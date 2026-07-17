@@ -60,12 +60,20 @@ Presence (collaborator cursors, a deterministic color per user) comes along for 
 
 **Module system note**: `server/collaboration.ts` is actually `server/collaboration.mts`. The project has no `"type": "module"` in `package.json`, so a plain `.ts` file run via `tsx` resolves dependencies as CommonJS — which broke `@blocknote/server-util` (a Tiptap ESM/CJS interop bug, `Code.extend is not a function`) at import time. `.mts` forces Node/tsx to treat the file as ESM regardless of the rest of the project, without changing the whole project's module type.
 
+## Inline AI
+
+Selecting text inside a page shows a small floating toolbar (`src/components/InlineAiToolbar.tsx`) with four actions — elaborate, compact, fix grammar, enhance. It's built directly on `BlockNoteEditor`'s own public API (`editor.getSelectedText()`, `editor.onSelectionChange()`, `editor.pasteText()`) and the standard DOM Selection API for positioning the toolbar near the selection — not Blocknote's official `@blocknote/xl-ai` package, which hard-depends on `@blocknote/mantine` and would have reintroduced the exact UI framework Phase 3 avoided, for a feature that's actually just 4 fixed prompts rather than the open-ended chat/tool-calling system that package provides.
+
+Clicking an action sends the selected text to `POST /api/ai/inline` (`{action, text}`), open to any authenticated session (manager or employee) — it's a stateless text transform with no per-page DB read/write, so it doesn't need page-specific access checks. The server (`src/lib/inlineAi.ts`) tries **OpenAI → Gemini → Groq** in order via the Vercel AI SDK's `generateText`, falling through to the next provider on any failure (missing key, bad model, provider outage) until one succeeds or all three have failed. Model IDs are env-configurable (`OPENAI_MODEL`, `GEMINI_MODEL`, `GROQ_MODEL`), not hardcoded.
+
+The result replaces the original selection via `editor.pasteText()`. Known limitation: if the selection changes while the request is in flight, the replacement lands wherever the selection is *when the response arrives*, not the original spot — toolbar buttons are disabled during the request to shrink that window, not eliminate it.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-Inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md), and RecentlyVisited (Phase 6).
+The AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md), and RecentlyVisited (Phase 6).
 
 Production deployment of the collaboration server (a second service alongside the Next.js app) isn't configured — no hosting target has been chosen yet.
