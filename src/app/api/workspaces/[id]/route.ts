@@ -1,20 +1,8 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
-import { connectToDatabase } from "@/lib/db";
 import { getCurrentManager } from "@/lib/auth";
-import { Workspace } from "@/models/Workspace";
+import { getOwnedWorkspace } from "@/lib/workspaces";
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-async function getOwnedWorkspace(id: string, organizationId: mongoose.Types.ObjectId) {
-  if (!mongoose.isValidObjectId(id)) return null;
-
-  await connectToDatabase();
-  const workspace = await Workspace.findById(id);
-  if (!workspace || !workspace.organizationId.equals(organizationId)) return null;
-
-  return workspace;
-}
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const manager = await getCurrentManager();

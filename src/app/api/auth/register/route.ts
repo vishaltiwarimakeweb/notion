@@ -81,7 +81,8 @@ export async function POST(request: Request) {
   }
 
   const token = await createSessionToken({
-    managerId: manager._id.toString(),
+    userId: manager._id.toString(),
+    userType: "manager",
     organizationId: manager.organizationId.toString(),
     email: manager.email,
   });
