@@ -4,7 +4,7 @@ An AI-powered, collaborative B2B multi-tenancy CRUD SaaS — organizations get w
 
 ## Tech stack
 
-Next.js (App Router) + TypeScript + Tailwind CSS, MongoDB (Mongoose), Redis (OTP storage), JWT sessions (`jose`), Brevo (transactional email), Blocknote (`@blocknote/shadcn`) for page content, Yjs + Hocuspocus (standalone WebSocket server) for real-time collaboration, Cloudinary (media, planned), Razorpay (billing, planned).
+Next.js (App Router) + TypeScript + Tailwind CSS, MongoDB (Mongoose), Redis (OTP storage), JWT sessions (`jose`), Brevo (transactional email), Blocknote (`@blocknote/shadcn`) for page content, Yjs + Hocuspocus (standalone WebSocket server) for real-time collaboration, Vercel AI SDK (OpenAI → Gemini → Groq fallback) for inline AI, Cloudinary (media, planned), Razorpay (billing, planned).
 
 ## Getting started
 
@@ -19,7 +19,7 @@ npm run dev:collab   # collaboration WebSocket server, in another
 
 3. Open [http://localhost:3000](http://localhost:3000).
 
-## What's implemented so far (Phases 0–4)
+## What's implemented so far (Phases 0–5)
 
 - Manager registration (creates an Organization + Manager) and login, with a JWT session cookie.
 - Forgot-password flow via a Redis-backed, rate-limited OTP emailed through Brevo.
@@ -29,5 +29,6 @@ npm run dev:collab   # collaboration WebSocket server, in another
 - Employee invitation: a manager invites an email to a workspace; the employee accepts via a public link and signs in with Google or GitHub (no password) — see `GOOGLE_CLIENT_ID`/`GITHUB_CLIENT_ID` etc. in `.env.example` to enable the OAuth handshake. Dashboard and workspace pages are read-only for employees, scoped to workspaces they're assigned to.
 - Page CRUD with infinitely nestable pages, available to both managers and assigned employees: create, rename, trash (cascades to nested pages), restore, and favorite.
 - Real-time collaborative page editing (Blocknote + Yjs) with live cursors — requires `npm run dev:collab` running alongside the Next.js app; see `docs/HOW_IT_WORKS.md` for how auth and persistence work across the two processes.
+- Inline AI: select text in a page for elaborate/compact/fix-grammar/enhance actions, backed by an OpenAI → Gemini → Groq fallback chain — see `.env.example` for the provider API keys.
 
-AI features and billing are not implemented yet — see the phased roadmap in [docs/PRE_BUILD_PLAN.md](docs/PRE_BUILD_PLAN.md).
+The AI assistant widget and billing are not implemented yet — see the phased roadmap in [docs/PRE_BUILD_PLAN.md](docs/PRE_BUILD_PLAN.md).

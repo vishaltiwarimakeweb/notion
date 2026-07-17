@@ -280,7 +280,7 @@ userType : String, enum : [manager, employee], required
 
 ## Phase 6 :
 
-- Search (workspaces & pages) + Recently Visited
+- Search (workspaces & pages) + Recently Visited pages
 
 ## Phase 7 :
 
@@ -296,5 +296,5 @@ userType : String, enum : [manager, employee], required
 
 ## Phase 10 :
 
-- Edit profile UI with backend features as well, both managers and employees can update/delete their profiles.
-- Updating password requires entering correct current password or by verifying a 5 digits OTP sent to the registered email ( Redis + Brevo )
+- Edit profile page with backend features as well, both managers and employees can update/delete their profiles.
+- Updating password requires entering correct current password or by verifying a 5 digits OTP sent to the registered email ( Redis + Brevo ).
