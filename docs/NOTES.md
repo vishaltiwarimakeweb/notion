@@ -1,0 +1,30 @@
+<!-- To keep track of what mistakes did the AI coding assistant made throughout the project and what prompts I provided everytime -->
+
+# First Prompt :
+
+- Read CLAUDE.md and PRE_BUILD_PLAN.md before doing anything else. We are building this application incrementally. Do not generate the entire application.1. Read and understand the project requirements.2. Review the architecture described in PRE_BUILD_PLAN.md. 3. Point out any inconsistencies, missing requirements, or architectural concerns. 4. Suggest improvements, but do not implement anything yet. 5. Once the architecture is finalized, propose a development roadmap divided into small phases, where each phase is independently testable and deployable. Do not write code in this step. Yes, don't build everything at once, start with a MVP foundation, don't create MCP tools in the first build, only make the AI answer from the knowledge base, create a recommended schema with timestamps, treat widget and the dashboard as separate surfaces, the lead capture form must appear wherethe widget is visible i.e, at the organization's webpage. Proceed with recommended & suggested setup.
+
+# Base Prompt :
+
+- Before making any changes:
+
+0. Check PROGRESS.md.
+1. Read CLAUDE.md.
+2. Read docs/PRE_BUILD_PLAN.md.
+3. Follow those documents throughout this session unless I explicitly tell you otherwise.
+
+Acknowledge once you've finished reading them, check PROGRESS.md and continue building.
+
+# Wrong assumption caught during pre-build review :
+
+- The First Prompt above mentions "widget and dashboard as separate surfaces" and "a lead capture form on the organization's webpage" — those describe a public embeddable support-widget/lead-gen product, not this app (an internal Notion-style CRUD tool with an in-app AI assistant). Flagged the mismatch and asked the user to confirm scope instead of assuming; confirmed answer: AI widget stays an in-app assistant only, no public embed or lead capture.
+- PRE_BUILD_PLAN.md's original schema was missing: Workspace<->Employee membership (no way to know who's assigned to which workspace), an Invitation model (invite state before the employee record exists), soft-delete fields on Workspace/Page despite "trash" being a stated requirement, a payload field on Content (had type/ordering but nothing storing the actual block value), and Favorite/RecentlyVisited models despite both being listed features. Fixed directly in PRE_BUILD_PLAN.md after user confirmed.
+- Original roadmap bundled MCP tools into the same phase as the RAG assistant, conflicting with the "don't build MCP tools in the first AI build" instruction — split into two phases.
+
+# Phase 0 implementation — corrections caught while building :
+
+- Wrote `src/middleware.ts` following the long-standing Next.js convention (from training data). The dev server itself flagged it as deprecated: Next.js 16 renamed the convention to `src/proxy.ts`, exporting a function named `proxy` instead of `middleware` (the `config`/`matcher` export is unchanged). Caught by actually running the dev server and reading its warning, not by memory — consistent with CLAUDE.md's "always fetch the latest documentation" rule. Fixed by renaming the file and the exported function.
+- Split `src/lib/auth.ts` into an Edge-safe `src/lib/session.ts` (jose + cookies only) and `src/lib/auth.ts` (adds the Mongoose-dependent `getCurrentManager()`). The proxy/middleware file runs on the Edge runtime, which can't load Mongoose — importing the combined file from `proxy.ts` would have broken at runtime even though it type-checked fine.
+- `@getbrevo/brevo` v6 is a fully rewritten SDK (different from the older `SendinBlue`/v2-style `TransactionalEmailsApi` API remembered from training) — read the package's own `.d.ts` files under `node_modules` to get the real `BrevoClient`/`sendTransacEmail` shape instead of guessing.
+- Mongoose model typing: `models.Manager ?? model("Manager", schema)` combined with `InferSchemaType` produced a `never`/malformed union type on reads (e.g. `Manager.findById().select()` typed as possibly an array). Fixed by declaring an explicit `IManager` interface and casting the `models.X` branch to `Model<IManager>`, which is the standard pattern for Mongoose + Next.js + TypeScript.
+- No local MongoDB/Redis/Docker/chromium-cli/Playwright available in this sandbox, so Phase 0's DB-backed flows (actual register/login/OTP) could not be exercised end-to-end — only static rendering, the `/dashboard` redirect, lint, and typecheck were verified. Flagged explicitly in PROGRESS.md rather than claiming full verification.
