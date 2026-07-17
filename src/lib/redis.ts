@@ -5,11 +5,16 @@ declare global {
 }
 
 function createClient() {
-  const url = process.env.REDIS_URL;
-  if (!url) {
-    throw new Error("REDIS_URL is not set");
+  const { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } = process.env;
+  if (!REDIS_HOST || !REDIS_PORT) {
+    throw new Error("REDIS_HOST/REDIS_PORT are not set");
   }
-  return new Redis(url);
+  return new Redis({
+    host: REDIS_HOST,
+    port: Number(REDIS_PORT),
+    username: REDIS_USERNAME,
+    password: REDIS_PASSWORD,
+  });
 }
 
 export const redis = global._redisClient ?? createClient();
