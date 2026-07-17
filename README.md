@@ -19,7 +19,7 @@ npm run dev:collab   # collaboration WebSocket server, in another
 
 3. Open [http://localhost:3000](http://localhost:3000).
 
-## What's implemented so far (Phases 0–5)
+## What's implemented so far (Phases 0–6)
 
 - Manager registration (creates an Organization + Manager) and login, with a JWT session cookie.
 - Forgot-password flow via a Redis-backed, rate-limited OTP emailed through Brevo.
@@ -30,5 +30,6 @@ npm run dev:collab   # collaboration WebSocket server, in another
 - Page CRUD with infinitely nestable pages, available to both managers and assigned employees: create, rename, trash (cascades to nested pages), restore, and favorite.
 - Real-time collaborative page editing (Blocknote + Yjs) with live cursors — requires `npm run dev:collab` running alongside the Next.js app; see `docs/HOW_IT_WORKS.md` for how auth and persistence work across the two processes.
 - Inline AI: select text in a page for elaborate/compact/fix-grammar/enhance actions, backed by an OpenAI → Gemini → Groq fallback chain — see `.env.example` for the provider API keys.
+- Search (title-only, scoped to what the current session can access) on the dashboard and inside each workspace, plus a recently-visited pages list.
 
 The AI assistant widget and billing are not implemented yet — see the phased roadmap in [docs/PRE_BUILD_PLAN.md](docs/PRE_BUILD_PLAN.md).

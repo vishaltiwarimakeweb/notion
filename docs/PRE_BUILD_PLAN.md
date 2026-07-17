@@ -231,14 +231,15 @@ index By : compound unique ( userId, pageId )
 ## RecentlyVisited
 
 ```
-employeeId : mongoose.Schema.Types.ObjectId, ref to employee, required
+userId : mongoose.Schema.Types.ObjectId, required ( manager or employee, same pattern as Message/Favorite )
+userType : String, enum : [manager, employee], required
 pageId : mongoose.Schema.Types.ObjectId, ref to page, required
 visitedAt : Date, default : now ( updated on every visit )
 createdAt : default mongodb timestamp
 updatedAt : default mongodb timestamp
 ```
 
-index By : compound unique ( employeeId, pageId ), sort by visitedAt desc
+index By : compound unique ( userId, pageId ), sort by visitedAt desc
 
 ## Message
 

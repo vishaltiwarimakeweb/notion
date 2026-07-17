@@ -6,6 +6,7 @@ import { connectToDatabase } from "@/lib/db";
 import { Workspace } from "@/models/Workspace";
 import { WorkspaceMember } from "@/models/WorkspaceMember";
 import { CreateWorkspaceForm } from "@/components/CreateWorkspaceForm";
+import { SearchBar } from "@/components/SearchBar";
 
 export default async function DashboardPage() {
   const manager = await getCurrentManager();
@@ -47,6 +48,10 @@ export default async function DashboardPage() {
             Trash
           </Link>
         )}
+      </div>
+
+      <div className="mt-8">
+        <SearchBar />
       </div>
 
       {manager && (

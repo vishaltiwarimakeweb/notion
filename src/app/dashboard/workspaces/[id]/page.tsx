@@ -8,6 +8,7 @@ import { WorkspaceSettings } from "@/components/WorkspaceSettings";
 import { InviteMemberForm } from "@/components/InviteMemberForm";
 import { CreatePageForm } from "@/components/CreatePageForm";
 import { PageTree } from "@/components/PageTree";
+import { SearchBar } from "@/components/SearchBar";
 
 export default async function WorkspacePage({
   params,
@@ -43,6 +44,10 @@ export default async function WorkspacePage({
           <Trash2 size={16} />
           Trash
         </Link>
+      </div>
+
+      <div className="mt-8">
+        <SearchBar workspaceId={workspace._id.toString()} />
       </div>
 
       <div className="mt-8">
