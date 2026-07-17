@@ -4,10 +4,10 @@
 
 # Tech Stack
 
-- **Frontend** : Next.js ( App Router ), Tailwind CSS, Lucide React, Typescript, React Toastify ( for Toasters )
+- **Frontend** : Next.js ( App Router ), Tailwind CSS, Lucide React, Typescript, React Toastify ( for Toasters ), Blocknote ( `@blocknote/core` + `@blocknote/react` + `@blocknote/shadcn` — shadcn variant chosen over Mantine since it peer-depends on Tailwind v4 directly instead of pulling in a second component framework )
 - **Backend** : Next.js ( API Routes )
 - **Database** : MongoDB
-- **Tools** : Redis ( for storing and managing OTPs ), WebSockets via a dedicated Node/Socket.io server ( for real-time page collaboration — Next.js API routes can't hold persistent connections ), fallback LLMs ( OpenAI -> Gemini -> Groq ), RAG using MongoDB Atlas Vector Search ( reuses existing DB instead of adding a separate vector store ), MCP Tools ( in-built, added in Phase 8 ), Razorpay, Brevo ( for Email sending ), Cloudinary ( for media file-storage )
+- **Tools** : Redis ( for storing and managing OTPs ), a dedicated Node WebSocket server for real-time page collaboration ( Next.js API routes can't hold persistent connections; Blocknote's collaboration requires a Yjs document + a Yjs-compatible provider — e.g. `y-websocket` or Hocuspocus, self-hosted — not a generic library like Socket.io, since Yjs's binary sync protocol needs a provider that speaks it; exact provider decided when Phase 4 is planned ), fallback LLMs ( OpenAI -> Gemini -> Groq ), RAG using MongoDB Atlas Vector Search ( reuses existing DB instead of adding a separate vector store ), MCP Tools ( in-built, added in Phase 8 ), Razorpay, Brevo ( for Email sending ), Cloudinary ( for media file-storage )
 
 # UI
 
@@ -176,28 +176,30 @@ index By : token
 ```
 organizationId : mongoose.Schema.Types.ObjectId, ref to organization
 workspaceId : mongoose.Schema.Types.ObjectId, ref to workspace, required
-createdBy : mongoose.Schema.Types.ObjectId, ref to employee, required
+parentPageId : mongoose.Schema.Types.ObjectId, ref to page, default : null ( a page can have any number of children — general tree, found via Page.find({parentPageId}) — replaces the earlier singly-linked "nextPage" )
 title : String , minLength : 3 & required
-nextPage : mongoose.Schema.Types.ObjectId, ref to page, default : null
+createdBy : mongoose.Schema.Types.ObjectId, required ( manager or employee )
+createdByType : String, enum : [manager, employee], required
 isDeleted : Boolean, default : false ( trash flag )
 deletedAt : Date, default : null
 createdAt : default mongodb timestamp
 updatedAt : default mongodb timestamp
 ```
 
-index By : title, workspaceId
+index By : title, ( workspaceId, parentPageId )
+
+Note: soft-deleting a page cascades to all of its descendants (otherwise a trashed page would leave orphaned-but-accessible children behind); restoring does not cascade back.
 
 ## Content
 
 ```
-pageId : mongoose.Schema.Types.ObjectId, ref to page
-type: String , enum : [Heading, Paragraph, Bullet List, Table, Image, Video, Audio, Media File], required
-data : mongoose.Schema.Types.Mixed, required ( the actual block payload : text, media URL, table rows/cols etc., shape depends on type )
-prevContent : mongoose.Schema.Types.ObjectId, ref to content, default : null ( if first content of that page, otherwise the last inserted content of that page )
-nextContent : mongoose.Schema.Types.ObjectId, ref to content, default : null( updated to the latest inserted content's id when a new content is inserted, updated appropriately upon deleting a content )
+pageId : mongoose.Schema.Types.ObjectId, ref to page, unique & required ( one Content document per Page )
+blocks : mongoose.Schema.Types.Mixed, default : [] ( the full Blocknote document — an array of Block objects, as returned by editor.document. Ordering and nesting are already encoded in the array + each block's own `children`, so there's no need for a per-block prevContent/nextContent chain — Blocknote already gives independent block editing/deletion natively )
 createdAt : default mongodb timestamp
 updatedAt : default mongodb timestamp
 ```
+
+Note: Blocknote's real-time collaboration (Phase 4) requires a Yjs document (Y.Doc + XmlFragment) — plain JSON won't work with it. Phase 4 will bootstrap each page's first Y.Doc from this `blocks` field the first time it's opened collaboratively, so this isn't throwaway work.
 
 ## Employee
 
@@ -216,13 +218,14 @@ index By : name, compound unique ( organizationId, email )
 ## Favorite
 
 ```
-employeeId : mongoose.Schema.Types.ObjectId, ref to employee, required
+userId : mongoose.Schema.Types.ObjectId, required ( manager or employee, same pattern as Message )
+userType : String, enum : [manager, employee], required
 pageId : mongoose.Schema.Types.ObjectId, ref to page, required
 createdAt : default mongodb timestamp
 updatedAt : default mongodb timestamp
 ```
 
-index By : compound unique ( employeeId, pageId )
+index By : compound unique ( userId, pageId )
 
 ## RecentlyVisited
 

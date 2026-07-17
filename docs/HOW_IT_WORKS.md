@@ -36,10 +36,22 @@ That page (`src/app/invite/[token]/page.tsx`) is public — no session required 
 
 The dashboard, workspace detail page, and Navbar all branch on `session.userType`: a Manager sees every workspace in the org plus create/rename/delete controls; an Employee sees only the workspaces they're an assigned `WorkspaceMember` of, read-only. Manager-initiated unassign, employee self-unassign, and a member-list view are deliberately not built yet (see NOTES.md).
 
+## Pages & Blocknote content
+
+Both Managers (any workspace in their org) and Employees (only workspaces they're a `WorkspaceMember` of) can create and edit pages — `src/lib/workspaces.ts`'s `getAccessibleWorkspace(id, session)` branches on `session.userType` to enforce that, and `src/lib/pages.ts`'s `getAccessiblePage`/`getPageForMutation` build on top of it for page-level routes.
+
+Pages nest via `parentPageId` (`src/models/Page.ts`) — a general tree (any number of children per page), not a chain. A page's actual content lives in a separate `Content` document (`src/models/Content.ts`) holding the whole Blocknote `blocks` array as one JSON blob — that's `editor.document`'s native shape, fetched/replaced as a unit, not modeled as individual block rows in Mongo. `PUT /api/pages/[id]/content` (`src/app/api/pages/[id]/content/route.ts`) replaces the array wholesale; the editor (`src/components/PageEditor.tsx`) debounces ~1s after the last keystroke before calling it.
+
+The editor itself (`@blocknote/core` + `@blocknote/react` + `@blocknote/shadcn`) touches `window` during render and can't be server-rendered — `src/components/PageEditorClient.tsx` wraps it in `next/dynamic(..., { ssr: false })` (a plain static import in the Server Component page would 500 with `window is not defined`; `next/dynamic`'s `ssr: false` option also can't be used directly inside a Server Component, hence the separate client-only wrapper file).
+
+Soft-deleting a page cascades to every descendant (`cascadeSoftDelete` in `src/lib/pages.ts`) so a trashed parent never leaves orphaned-but-still-accessible children behind; restoring a page does not cascade back down — a known, documented limitation rather than something solved now. Page trash is scoped per-workspace (`/dashboard/workspaces/[id]/trash`), reachable by anyone with access to that workspace — unlike the global `/dashboard/trash`, which is manager-only and workspace-trash-only.
+
+Favorites (`src/models/Favorite.ts`) use the same `{userId, userType}` pattern as `Message`, so either a Manager or an Employee can favorite a page.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-Pages/blocks, real-time collaboration, inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, and a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md).
+Real-time collaboration, inline AI, the AI assistant widget, search, and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md), and RecentlyVisited (Phase 6).
