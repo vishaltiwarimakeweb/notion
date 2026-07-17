@@ -7,7 +7,7 @@
 - **Frontend** : Next.js ( App Router ), Tailwind CSS, Lucide React, Typescript, React Toastify ( for Toasters ), Blocknote ( `@blocknote/core` + `@blocknote/react` + `@blocknote/shadcn` — shadcn variant chosen over Mantine since it peer-depends on Tailwind v4 directly instead of pulling in a second component framework )
 - **Backend** : Next.js ( API Routes )
 - **Database** : MongoDB
-- **Tools** : Redis ( for storing and managing OTPs ), a dedicated Node WebSocket server for real-time page collaboration ( Next.js API routes can't hold persistent connections; Blocknote's collaboration requires a Yjs document + a Yjs-compatible provider — e.g. `y-websocket` or Hocuspocus, self-hosted — not a generic library like Socket.io, since Yjs's binary sync protocol needs a provider that speaks it; exact provider decided when Phase 4 is planned ), fallback LLMs ( OpenAI -> Gemini -> Groq ), RAG using MongoDB Atlas Vector Search ( reuses existing DB instead of adding a separate vector store ), MCP Tools ( in-built, added in Phase 8 ), Razorpay, Brevo ( for Email sending ), Cloudinary ( for media file-storage )
+- **Tools** : Redis ( for storing and managing OTPs ), a dedicated standalone Node WebSocket server ( `server/collaboration.ts`, Hocuspocus v4 — chosen over raw `y-websocket` for its built-in auth/persistence hooks ) for real-time page collaboration ( Next.js API routes can't hold persistent connections; Blocknote's collaboration requires a Yjs document, plain JSON alone doesn't work with it ), fallback LLMs ( OpenAI -> Gemini -> Groq ), RAG using MongoDB Atlas Vector Search ( reuses existing DB instead of adding a separate vector store ), MCP Tools ( in-built, added in Phase 8 ), Razorpay, Brevo ( for Email sending ), Cloudinary ( for media file-storage )
 
 # UI
 
@@ -194,12 +194,13 @@ Note: soft-deleting a page cascades to all of its descendants (otherwise a trash
 
 ```
 pageId : mongoose.Schema.Types.ObjectId, ref to page, unique & required ( one Content document per Page )
-blocks : mongoose.Schema.Types.Mixed, default : [] ( the full Blocknote document — an array of Block objects, as returned by editor.document. Ordering and nesting are already encoded in the array + each block's own `children`, so there's no need for a per-block prevContent/nextContent chain — Blocknote already gives independent block editing/deletion natively )
+blocks : mongoose.Schema.Types.Mixed, default : [] ( derived read cache — the Blocknote document as a plain array of Block objects, re-derived from yjsState by the collaboration server on every save. Kept for anything that wants plain-JSON reads without decoding Yjs. Not written directly by the client since Phase 4. )
+yjsState : Buffer, default : null ( source of truth once a page has been opened collaboratively at least once — the Yjs document's encoded state, Y.encodeStateAsUpdate(doc). Written by server/collaboration.ts's onStoreDocument hook, not by any Next.js API route. )
 createdAt : default mongodb timestamp
 updatedAt : default mongodb timestamp
 ```
 
-Note: Blocknote's real-time collaboration (Phase 4) requires a Yjs document (Y.Doc + XmlFragment) — plain JSON won't work with it. Phase 4 will bootstrap each page's first Y.Doc from this `blocks` field the first time it's opened collaboratively, so this isn't throwaway work.
+Note (Phase 4, implemented): Blocknote's real-time collaboration requires a Yjs document (Y.Doc + XmlFragment) — plain JSON alone doesn't work with it. A page created before Phase 4 (has `blocks` but no `yjsState`) is bootstrapped transparently the first time it's opened collaboratively — `server/collaboration.ts`'s `onLoadDocument` converts the stored `blocks` into a fresh Y.Doc via `@blocknote/server-util`.
 
 ## Employee
 

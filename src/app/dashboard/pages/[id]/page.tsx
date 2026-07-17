@@ -1,8 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import type { PartialBlock } from "@blocknote/core";
 import { getSessionFromCookies } from "@/lib/auth";
 import { getAccessiblePage } from "@/lib/pages";
-import { Content } from "@/models/Content";
 import { Favorite } from "@/models/Favorite";
 import { Page } from "@/models/Page";
 import { PageEditorClient as PageEditor } from "@/components/PageEditorClient";
@@ -23,8 +21,7 @@ export default async function PageEditorPage({
   const page = await getAccessiblePage(id, session);
   if (!page) notFound();
 
-  const [content, favorite, childPages] = await Promise.all([
-    Content.findOne({ pageId: page._id }),
+  const [favorite, childPages] = await Promise.all([
     Favorite.findOne({ userId: session.userId, pageId: page._id }),
     Page.find({ parentPageId: page._id, isDeleted: false }).sort({ createdAt: 1 }),
   ]);
@@ -44,10 +41,7 @@ export default async function PageEditorPage({
         <FavoriteButton pageId={page._id.toString()} initialFavorited={Boolean(favorite)} />
       </div>
 
-      <PageEditor
-        pageId={page._id.toString()}
-        initialBlocks={(content?.blocks ?? []) as PartialBlock[]}
-      />
+      <PageEditor pageId={page._id.toString()} userName={session.email} />
 
       <div className="mt-10 border-t border-neutral-200 pt-6 dark:border-neutral-800">
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">
