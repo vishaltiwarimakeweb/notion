@@ -68,8 +68,13 @@ Not covered: actual email deliverability/formatting of the Brevo OTP email (the 
 - `npm run lint` and `npx tsc --noEmit` both clean.
 - Live-tested against real Mongo: page CRUD + validation, 3-level nesting (recreated the spec's own React.js → Hooks → useEffect example), cascade soft-delete + trash listing + non-cascading restore, content save/read-back, favorite toggle, rename, manager cross-org denial (404), and employee access scoping — seeded a real `Employee` + `WorkspaceMember` and hand-signed a matching session JWT (same `jose` signing this app already uses) to verify an employee can access pages in their assigned workspace and gets 404 everywhere else, since OAuth credentials still aren't configured. After the SSR fix, also confirmed the page editor route itself renders (200, `Nested pages` section present) — full editor interaction (typing, toolbar) still isn't click-testable, no headless browser tooling in this sandbox. Test data cleaned up afterward.
 
+**OAuth credentials verification** (`GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` added to `.env.local`):
+
+- Confirmed `GET /api/oauth/[provider]/start` now redirects correctly with real credentials — checked the actual `Location` header for both providers: correct `client_id`, `redirect_uri` (`http://localhost:3000/api/oauth/<provider>/callback`), scopes, and a validly-signed `state` JWT. This was the exact boundary flagged as untested in Phase 2.
+- **Cannot verify further from here**: completing the actual Google/GitHub login + consent screen requires a real interactive browser session with a real account — not something drivable via `curl` or any tool available in this sandbox. The `/callback` route's token exchange (the part that actually creates the `Employee`) still needs a human to click through the flow at least once. Test data cleaned up afterward.
+
 ## Next
 
 - Push branches `feature/manager-auth`, `feature/workspace-crud`, `feature/employee-invitation`, and `feature/page-crud` (still blocked — no GitHub credentials in this sandbox) and open PRs.
-- Once you have Google/GitHub OAuth app credentials (each needs `http://localhost:3000/api/oauth/<provider>/callback` allow-listed as a redirect URI), add them to `.env.local` so the full employee sign-in flow can be live-tested end-to-end.
+- **You (or someone) should click through the real employee sign-in flow once** to confirm the `/callback` exchange works end-to-end: register/log in as a manager, invite a real email to a workspace, open the emailed link, click "Continue with Google" or "Continue with GitHub." Flag anything that breaks.
 - Design Phase 4: real-time collaboration via WebSockets — needs a Yjs document per page (Blocknote requires this for collab; plain JSON won't work) and a Yjs-compatible provider (`y-websocket` or Hocuspocus, self-hosted), bootstrapped from each page's existing `Content.blocks` the first time it's opened collaboratively.
