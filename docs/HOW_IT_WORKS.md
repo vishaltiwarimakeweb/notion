@@ -76,7 +76,7 @@ Every time `/dashboard/pages/[id]` is opened, `recordVisit` (`src/lib/recentlyVi
 
 ## AI assistant widget (RAG)
 
-A fixed bottom-right chat widget (`src/components/AiChatWidgetClient.tsx`, wrapped by the session-checking `AiChatWidget.tsx` — same server-wrapper pattern as `Navbar`) is rendered in `src/app/layout.tsx`, visible on every page but only for a logged-in session. It answers **only from the org's own content** — no outside knowledge, no tool-calling yet (MCP tools are Phase 8).
+A fixed bottom-right chat widget (`src/components/AiChatWidgetClient.tsx`, wrapped by the session-checking `AiChatWidget.tsx` — same server-wrapper pattern as `Navbar`) is rendered in `src/app/layout.tsx`, visible on every page but only for a logged-in session. For content questions it answers **only from the org's own content** — no outside knowledge. For requests to find, create, rename, or delete pages/workspaces, it uses the tools described below instead of guessing.
 
 **Keeping the knowledge base in sync**: every time the collaboration server persists a page's content (`onStoreDocument`, Phase 4), it also calls `reindexPage` (`src/lib/ragIndexing.ts`) — best-effort, wrapped in a try/catch so an indexing failure never blocks the actual content save. `reindexPage` converts the page's Blocknote content to plain text (`@blocknote/server-util`'s `blocksToMarkdownLossy`), splits it into ~1500-character chunks (`src/lib/embeddings.ts`'s `chunkText` — simple fixed-size, no semantic splitter), embeds each chunk (`text-embedding-3-small`), and replaces that page's `KnowledgeChunk` documents. Pages that existed before this phase need a one-time `npm run backfill:embeddings` (their `onStoreDocument` won't refire until their next edit).
 
@@ -84,12 +84,18 @@ A fixed bottom-right chat widget (`src/components/AiChatWidgetClient.tsx`, wrapp
 
 **Module boundary note**: `reindexPage` (in `src/lib/ragIndexing.ts`) must never be imported from `src/app/**` — `@blocknote/server-util` calls `React.createContext` at import time, which Next.js's route/RSC bundler rejects outside a "use client" file, 500ing any route that pulls it in even transitively. `retrieveContext` (in `src/lib/rag.ts`, safe for API routes) is deliberately kept in a separate file from `reindexPage` for exactly this reason.
 
+## AI assistant tools (MCP tools)
+
+Alongside RAG-based Q&A, the chat assistant can take 7 actions on the user's behalf, defined in `src/lib/assistantTools.ts` and passed to `generateTextWithFallback` as `tools` (with `stopWhen: stepCountIs(5)` to allow a few tool-calling steps per reply): `searchPages`, `searchWorkspaces`, `findAllPages` (top-level pages only, each tagged with its workspace), `deletePage`, `editPage` (rename only — real content edits go through the collaborative editor or inline AI, not chat), `createPage`, and `createNestedPage`. This is implemented with the Vercel AI SDK's native `tool()`/`ToolSet` support rather than a standalone MCP protocol server — same end-user behavior, without a 4th long-running process, since the installed `ai` SDK has no MCP client to connect to one anyway.
+
+Every tool's `execute` function closes over the request's `session` and calls the same access-control helpers the REST routes already use, so an Employee can't act outside their assigned workspaces no matter how the request is phrased — the underlying query simply won't find the resource. Tools identify pages/workspaces **by title**, not by ID (chat users say "delete the Vacation Policy page," not an ObjectId); since titles aren't unique, an ambiguous match returns a "which workspace?" response listing every match instead of guessing. `getAccessibleWorkspaceIds` (`src/lib/workspaces.ts`) centralizes the Manager-sees-everything-in-org vs. Employee-sees-only-their-workspaces branching, shared by these tools and by `GET /api/search`.
+
 ## Theming
 
 Dark/light mode is hand-rolled (no external theme library): `src/components/ThemeProvider.tsx` holds a React context that toggles a `.dark` class on `<html>` and persists the choice to `localStorage`. An inline script in `src/app/layout.tsx`'s `<head>` applies the stored (or OS-preferred) theme before hydration to avoid a flash of the wrong theme. Tailwind v4's `@custom-variant dark` (in `src/app/globals.css`) makes `dark:` utility classes respond to that class instead of only `prefers-color-scheme`.
 
 ## Not implemented yet
 
-MCP tools for the AI assistant (Phase 8 — it's currently Q&A-only, can't take actions like editing or deleting a page) and billing — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, and a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md).
+Billing/subscription enforcement and profile editing (Phases 9–10) — see the phase-by-phase roadmap in [PRE_BUILD_PLAN.md](PRE_BUILD_PLAN.md). Also not yet built: manager-unassign / employee self-unassign from a workspace, and a workspace member-list view (scope-trimmed out of Phase 2, see NOTES.md).
 
 Production deployment of the collaboration server (a second service alongside the Next.js app) isn't configured — no hosting target has been chosen yet.

@@ -26,7 +26,7 @@ npm run dev:collab   # collaboration WebSocket server, in another
 
 4. Open [http://localhost:3000](http://localhost:3000).
 
-## What's implemented so far (Phases 0–7)
+## What's implemented so far (Phases 0–8)
 
 - Manager registration (creates an Organization + Manager) and login, with a JWT session cookie.
 - Forgot-password flow via a Redis-backed, rate-limited OTP emailed through Brevo.
@@ -38,6 +38,7 @@ npm run dev:collab   # collaboration WebSocket server, in another
 - Real-time collaborative page editing (Blocknote + Yjs) with live cursors — requires `npm run dev:collab` running alongside the Next.js app; see `docs/HOW_IT_WORKS.md` for how auth and persistence work across the two processes.
 - Inline AI: select text in a page for elaborate/compact/fix-grammar/enhance actions, backed by an OpenAI → Gemini → Groq fallback chain — see `.env.example` for the provider API keys.
 - Search (title-only, scoped to what the current session can access) on the dashboard and inside each workspace, plus a recently-visited pages list.
-- AI assistant widget (bottom-right, on every page when logged in): answers questions using only the org's own content (RAG over page content via MongoDB Atlas Vector Search), scoped the same way as everything else — an Employee's questions only draw on workspaces they belong to. Q&A only for now; MCP tool-calling (letting it take actions like editing a page) is a later phase.
+- AI assistant widget (bottom-right, on every page when logged in): answers questions using only the org's own content (RAG over page content via MongoDB Atlas Vector Search), scoped the same way as everything else — an Employee's questions only draw on workspaces they belong to.
+- AI assistant tools: the widget can also search, create, rename, and delete pages/workspaces on the user's behalf by name, via the AI SDK's native tool-calling — every action is scoped by the same access-control rules as the equivalent dashboard action, so an Employee can't act outside their assigned workspaces through chat either.
 
 Billing is not implemented yet — see the phased roadmap in [docs/PRE_BUILD_PLAN.md](docs/PRE_BUILD_PLAN.md).
